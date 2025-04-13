@@ -1,6 +1,10 @@
 .data
     listInput: .string " DEL(b)~ AD D(a)~ADD(a)~"
     commandBuffer: .word 0, 0, 0, 0, 0, 0, 0, 0   # 8 parole = 32 byte     
+    
+    counter: .word 0 # counter degli elementi nella lista
+    head: .word 0    # pointer alla testa della lista ovviamente nullo
+    
     # DEBUG STRING
     add:   .string "ADD"
     del:   .string "DEL"
@@ -139,7 +143,7 @@ check_DEL:
     lb t3, 5(t2)
     bne t3, t4, invalid     # ci sono pi? parametri o ? sbagliato qualcosa
     
-    # il comando ? corretto chiamo la handle
+    # il comando è corretto chiamo la handle
     lb a1, 4(t2) 
     jal handle_del
     j ret_to_main       # return al main
@@ -169,22 +173,64 @@ ret_to_main:
 # Stub delle procedure vere
 #######################################################
 
+#ADD
+
 handle_add:
-    # azione debug per add
-    li a7, 4
-    la a0, add
-    ecall
-    li a7, 11
-    li a0, 40
-    ecall
-    mv a0, a1
-    ecall
-    li a0, 41
-    ecall
-    
-    # actual implementazione di ADD
-    
+    addi sp, sp, -8
+    sw ra, 0(sp)
+    sw a1, 4(sp)
+
+    jal find_free_space
+    beq a0, zero, add_end  # Nessun spazio disponibile
+
+    lw a1, 4(sp)           # Recupera il carattere
+
+    # Salva carattere
+    sb a1, 0(a0)
+
+    # Salva null next
+    addi t1, a0, 1
+    sw zero, 0(t1)
+
+    # Carica head
+    la t2, head
+    lw t3, 0(t2)
+    beq t3, zero, add_first
+
+    # Cerca ultimo nodo
+    mv t4, t3         # t4 = current
+find_last:
+    addi t5, t4, 1
+    lw t6, 0(t5)
+    beq t6, zero, link_new
+    mv t4, t6
+    j find_last
+
+link_new:
+    addi t5, t4, 1
+    sw a0, 0(t5)
+    j update_counter
+
+add_first:
+    sw a0, 0(t2)
+
+update_counter:
+    la t3, counter
+    lw t4, 0(t3)
+    addi t4, t4, 1
+    sw t4, 0(t3)
+
+add_end:
+    lw ra, 0(sp)
+    addi sp, sp, 8
     ret
+
+
+
+
+
+#DEL
+
 
 handle_del:
     # azione debug per del
@@ -213,5 +259,39 @@ handle_print:
 # Stub di procedure utili
 #######################################################
 
+# find_free_space
+# Cerca un blocco libero da 5 byte (tutti zero) nella RAM
+# a partire SEMPRE da 0x100, per una lunghezza fissa (es. 100 byte)
+# OUT: a0 = indirizzo del primo blocco libero, 0 se non trovato
+
 find_free_space:
-# need to be implemented    
+    li t0, 0x100          # indirizzo base fisso
+    li t4, 100            # dimensione fissa in byte
+    li t1, 0              # offset
+
+loop_search:
+    bge t1, t4, not_found
+
+    add t2, t0, t1        # t2 = indirizzo corrente
+
+    lb t3, 0(t2)
+    bne t3, zero, next
+    lb t3, 1(t2)
+    bne t3, zero, next
+    lb t3, 2(t2)
+    bne t3, zero, next
+    lb t3, 3(t2)
+    bne t3, zero, next
+    lb t3, 4(t2)
+    bne t3, zero, next
+
+    add a0, t0, t1        # trovato! restituisci indirizzo in a0
+    ret
+
+next:
+    addi t1, t1, 5        # salta al blocco successivo
+    j loop_search
+
+not_found:
+    li a0, 0              # nessun blocco libero trovato
+    ret
