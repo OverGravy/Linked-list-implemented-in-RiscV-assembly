@@ -43,4 +43,4 @@ listInput: .asciiz "ADD(a)~ADD(B)~PRINT~SORT~DEL(a)~REV~PRINT"
 ```
 ## Actual implemented feature
 
-- 'COMMAND INPUT' works parsing the string and understang if the command is properly formatted
+- `COMMAND INPUT` works parsing the string and understang if the command is properly formatted

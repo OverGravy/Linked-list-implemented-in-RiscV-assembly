@@ -1,5 +1,5 @@
 .data
-    listInput: .string " DEL(b)~ AD D(a)~ADD(a)~"
+    listInput: .string "PRINT~"
     commandBuffer: .word 0, 0, 0, 0, 0, 0, 0, 0   # 8 parole = 32 byte     
     
     counter: .word 0 # counter degli elementi nella lista
@@ -62,7 +62,7 @@ parse_end: # fine del programma
     ecall
 
 #######################################################
-# parse_command ? controlla e smista il comando
+# parse_command -> controlla e smista il comando
 #######################################################
 parse_command:
 
@@ -120,7 +120,7 @@ check_ADD:
     li t4, 41               # ")"
     beq t3, t4, invalid     # nessun parametro, check ")"
     lb t3, 5(t2)
-    bne t3, t4, invalid     # ci sono più parametri o è sbagliato qualcosa
+    bne t3, t4, invalid     # ci sono piï¿½ parametri o ï¿½ sbagliato qualcosa
     
     # il comando ? corretto chiamo la handle
     lb a1, 4(t2) 
@@ -141,17 +141,31 @@ check_DEL:
     li t4, 41               # ")"
     beq t3, t4, invalid     # nessun parametro, check ")"
     lb t3, 5(t2)
-    bne t3, t4, invalid     # ci sono pi? parametri o ? sbagliato qualcosa
+    bne t3, t4, invalid     # ci sono piï¿½ parametri o ï¿½ sbagliato qualcosa
     
-    # il comando è corretto chiamo la handle
+    # il comando ï¿½ corretto chiamo la handle
     lb a1, 4(t2) 
     jal handle_del
     j ret_to_main       # return al main
 
 check_PRINT:    
-    # gestione del comando PRINT (da implementare)
-    j ret_to_main
+    lb t3, 1(t2)
+    li t4, 82               # 'R'
+    bne t3, t4, invalid     # check R
+    lb t3, 2(t2)
+    li t4, 73               # 'I'
+    bne t3, t4, invalid     # check I
+    lb t3, 3(t2)
+    li t4, 78               # 'N'
+    bne t3, t4, invalid     # check N
+    lb t3, 4(t2)
+    li t4, 84               # 'T'
+    bne t3, t4, invalid     # check T
 
+    jal handle_print
+    j ret_to_main
+    
+    
 check_SORT:
     # gestione del comando SORT (da implementare)
     j ret_to_main
@@ -176,16 +190,19 @@ ret_to_main:
 #ADD
 
 handle_add:
+    
+    #debugg add
+    
     addi sp, sp, -8
-    sw ra, 0(sp)
-    sw a1, 4(sp)
+    sw ra, 4(sp)
+    sw a1, 8(sp)
 
     jal find_free_space
     beq a0, zero, add_end  # Nessun spazio disponibile
 
     lw a1, 4(sp)           # Recupera il carattere
 
-    # Salva carattere
+    # Salva carattere all'indirizzo libero
     sb a1, 0(a0)
 
     # Salva null next
@@ -199,6 +216,7 @@ handle_add:
 
     # Cerca ultimo nodo
     mv t4, t3         # t4 = current
+    
 find_last:
     addi t5, t4, 1
     lw t6, 0(t5)
@@ -227,8 +245,6 @@ add_end:
 
 
 
-
-
 #DEL
 
 
@@ -249,11 +265,47 @@ handle_del:
     
     ret
 
+
+
+#print
+
 handle_print:
-    li a7, 1
-    li a0, 300
+    # stampa debug iniziale
+    li a7, 4
+    la a0, print
+    ecall 
+
+    # inizializzazione
+    la t3, head  
+    lw t3, 0(t3)      # carica indirizzo head
+
+print_loop: 
+    beq t3, zero, end_print   # se la lista ï¿½ vuota, esci
+
+    # stampa carattere
+    lb a0, 0(t3)       # carica carattere
+    li a7, 11
+    ecall
+
+    # stampa spazio dopo ogni carattere (opzionale)
+    addi t4, t3, 1     # indirizzo del puntatore al prossimo nodo
+    lw t4, 0(t4)       # t4 = prossimo nodo
+    beq t4, zero, end_print
+
+    li a0, 32          # spazio ' '
+    li a7, 11
+    ecall
+
+    mv t3, t4          # passa al prossimo nodo
+    j print_loop
+
+end_print:
+    # newline finale
+    li a0, 10
+    li a7, 11
     ecall
     ret
+
 
 #######################################################
 # Stub di procedure utili
@@ -285,7 +337,7 @@ loop_search:
     lb t3, 4(t2)
     bne t3, zero, next
 
-    add a0, t0, t1        # trovato! restituisci indirizzo in a0
+    add a0, t0, t1        #restituisco l'indirizzo in a0
     ret
 
 next:
