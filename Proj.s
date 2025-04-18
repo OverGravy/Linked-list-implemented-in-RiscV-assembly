@@ -1,5 +1,5 @@
 .data
-    listInput: .string "PRINT~"
+    listInput: .string "ADD(b)~ADD(a)~PRINT~REV~PRINT~"
     commandBuffer: .word 0, 0, 0, 0, 0, 0, 0, 0   # 8 parole = 32 byte     
     
     counter: .word 0 # counter degli elementi nella lista
@@ -11,50 +11,65 @@
     sort:  .string "SORT"
     print: .string "PRINT"
     rev:   .string "REV"
+    
+    # Command messages
+    add_msg:   .string "element added:"
+    print_msg: .string "print list:"
+    dell_msg:  .string "element deleted succesfully"
+    rev_msg:   .string "list reverted succesfully"
+    sort_msg:  .string "list sorted succesfully"
+
+
+
+#######################################################
+
+#                REGISTRI IMPORTANTI                  #
+
+# s0 -> indirizzo stringa comandi
+# s1 -> indirizzo buffer comandi  
+# a1 -> il ritorno di tutte le funzioni 
+
 
 .text
 
-    la t0, listInput        # t0 -> stringa
-    la t1, commandBuffer    # t1 -> buffer
-    li t2, 0                # t2 -> flag "in comando"
+    la s0, listInput        # s0 -> stringa
+    la s1, commandBuffer    # s1 -> buffer
 
 parse_loop:
-    lbu t3, 0(t0)
-    beq t3, zero, parse_end   # raggiungo il fine stringa
+    lbu t0, 0(s0)
+    beq t0, zero, parse_end   # raggiungo il fine stringa
+    
+    li t1, 126                # valore della tilde
+    beq t0, t1, handle_tilde
 
-    li t4, 126             # valore della tilde
-    beq t3, t4, handle_tilde
-
-    # caricamento nel buffer del carattere letto se non ci sono spazi nel mezzo
-    sb t3, 0(t1)           # carcica il valore nel buffer 
-    addi t1, t1, 1         # incrementa pointer command list
-    addi t0, t0, 1         # incrementa pointer buffer
-    j parse_loop
-
-skip_space:
-    addi t0, t0, 1         # incremento puntatore in list input
-    j parse_loop
+    # caricamento nel buffer del carattere letto
+    sb t0, 0(s1)           # carcica il valore nel buffer 
+    addi s1, s1, 1         # incrementa pointer command list
+    addi s0, s0, 1         # incrementa pointer buffer
+    j parse_loop   
 
 handle_tilde:
-    li t4, 0
-    sb t4, 0(t1)         # null-terminate comando
+    li t1, 0
+    sb t1, 0(s1)         # null-terminate comando
     la a0, commandBuffer # preparazione parametri per il passaggio alla procedura
+    
+    addi sp, sp, -4
+    sw ra, 0(sp)
+    
     jal parse_command    # validazione comando
-
-    la t1, commandBuffer  # resetto il buffer
-    j skip_space         # salta anche eventuali spazi dopo tilde
+    j reset_buffer
 
 wait_tilde:
-    lbu t3, 0(t0)
-    beq t3, zero, parse_end
-    li t4, 126
-    beq t3, t4, reset_buffer
-    addi t0, t0, 1
+    lbu t0, 0(s0)
+    beq t0, zero, parse_end
+    li t1, 126
+    beq t0, t1, reset_buffer
+    addi s0, s0, 1
     j wait_tilde
 
 reset_buffer:
-    addi t0, t0, 1
-    la t1, commandBuffer   #set again the pointer to the beginning of the buffer
+    addi s0, s0, 1
+    la s1, commandBuffer   # rimetto il puntatore all'inizio del buffer
     j parse_loop
 
 parse_end: # fine del programma
@@ -65,123 +80,136 @@ parse_end: # fine del programma
 # parse_command -> controlla e smista il comando
 #######################################################
 parse_command:
-
-    # per via della chiamata annidata all'handle delle istruzioni
+    la t0, commandBuffer
+    
     addi sp, sp, -4     # spazio sullo stack
     sw ra, 0(sp)        # salvo il return address
-    la t2, commandBuffer
 
 parsing:
-    lb t3, 0(t2)           # carico il primo carattere
-    li t4, 32
-    beq t3, t4, skip_space_parsing
+    lb t1, 0(t0)           # carico il primo carattere
+    li t2, 32              # spazio
+    beq t1, t2, skip_space_parsing
 
     # check se inizia con A
-    li t4, 65    
-    beq t3, t4, check_ADD
+    li t2, 65              # 'A'
+    beq t1, t2, check_ADD
 
     # check se inizia con D
-    li t4, 68
-    beq t3, t4, check_DEL
+    li t2, 68              # 'D'
+    beq t1, t2, check_DEL
 
     # check se inizia con P
-    li t4, 80
-    beq t3, t4, check_PRINT
+    li t2, 80              # 'P'
+    beq t1, t2, check_PRINT
 
     # check se inizia con S
-    li t4, 83
-    beq t3, t4, check_SORT
+    li t2, 83              # 'S'
+    beq t1, t2, check_SORT
 
     # check se inizia con R 
-    li t4, 82
-    beq t3, t4, check_REV 
+    li t2, 82              # 'R'
+    beq t1, t2, check_REV
 
-    # comando a caso, invalido
     j invalid
 
 skip_space_parsing:
-    addi t2, t2, 1
+    addi t0, t0, 1
     j parsing
-    
-
 
 check_ADD:
-    #parte di debug
-    lb t3, 1(t2)
-    li t4, 68               # 'D'
-    bne t3, t4, invalid     # check D
-    lb t3, 2(t2)
-    li t4, 68               # 'D'
-    bne t3, t4, invalid     # check D
-    lb t3, 3(t2)
-    li t4, 40               # "("
-    bne t3, t4, invalid     # check "("
-    lb t3, 4(t2)
-    li t4, 41               # ")"
-    beq t3, t4, invalid     # nessun parametro, check ")"
-    lb t3, 5(t2)
-    bne t3, t4, invalid     # ci sono piï¿½ parametri o ï¿½ sbagliato qualcosa
+    lb t1, 1(t0)
+    li t2, 68               # 'D'
+    bne t1, t2, invalid
+    lb t1, 2(t0)
+    li t2, 68               # 'D'
+    bne t2, t1, invalid
+    lb t1, 3(t0)
+    li t2, 40               # "("
+    bne t2, t1, invalid
+    lb t1, 4(t0)
+    li t2, 41               # ")"
+    beq t2, t1, invalid
+    lb t1, 5(t0)
+    bne t1, t2, invalid
     
-    # il comando ? corretto chiamo la handle
-    lb a1, 4(t2) 
+    lb a1, 4(t0)              #passo il carattere da inserire in a1
     jal handle_add
+    
+    #ritorno al main
     j ret_to_main
 
 check_DEL:
-    lb t3, 1(t2)
-    li t4, 69               # 'E'
-    bne t3, t4, invalid     # check E
-    lb t3, 2(t2)
-    li t4, 76               # 'L'
-    bne t3, t4, invalid     # check L
-    lb t3, 3(t2)
-    li t4, 40               # "("
-    bne t3, t4, invalid     # check "("
-    lb t3, 4(t2)
-    li t4, 41               # ")"
-    beq t3, t4, invalid     # nessun parametro, check ")"
-    lb t3, 5(t2)
-    bne t3, t4, invalid     # ci sono piï¿½ parametri o ï¿½ sbagliato qualcosa
-    
-    # il comando ï¿½ corretto chiamo la handle
-    lb a1, 4(t2) 
+    lb t1, 1(t0)
+    li t2, 69               # 'E'
+    bne t1, t2, invalid
+    lb t1, 2(t0)
+    li t2, 76               # 'L'
+    bne t1, t2, invalid
+    lb t1, 3(t0)
+    li t2, 40               # "("
+    bne t1, t2, invalid
+    lb t1, 4(t0)
+    li t2, 41               # ")"
+    beq t1, t2, invalid
+    lb t1, 5(t0)
+    bne t1, t2, invalid
+
+    #parametro da passare alla chiamata della funzione
+    lb a1, 4(t0)
     jal handle_del
-    j ret_to_main       # return al main
-
-check_PRINT:    
-    lb t3, 1(t2)
-    li t4, 82               # 'R'
-    bne t3, t4, invalid     # check R
-    lb t3, 2(t2)
-    li t4, 73               # 'I'
-    bne t3, t4, invalid     # check I
-    lb t3, 3(t2)
-    li t4, 78               # 'N'
-    bne t3, t4, invalid     # check N
-    lb t3, 4(t2)
-    li t4, 84               # 'T'
-    bne t3, t4, invalid     # check T
-
-    jal handle_print
+    
+   #ritorno al main
     j ret_to_main
+
+check_PRINT:
+    lb t1, 1(t0)
+    li t2, 82               # 'R'
+    bne t2, t1, invalid
+    lb t1, 2(t0)
+    li t2, 73               # 'I'
+    bne t1, t2, invalid
+    lb t1, 3(t0)
+    li t2, 78               # 'N'
+    bne t1, t2, invalid
+    lb t1, 4(t0)
+    li t2, 84               # 'T'
+    bne t1, t2, invalid
+  
+    jal handle_print
     
-    
+    #ritorno al main
+    j ret_to_main
+
 check_SORT:
-    # gestione del comando SORT (da implementare)
+    # placeholder
+ 
+    #ritorno al main
     j ret_to_main
 
 check_REV:
-    # gestione del comando REV (da implementare)
+    lb t1, 1(t0)
+    li t2, 69               # 'E'
+    bne t2, t1, invalid
+    lb t1, 2(t0)
+    li t2, 86               # 'V'
+    bne t1, t2, invalid
+  
+    jal handle_rev
+    
+    
+    #ritorno al main
     j ret_to_main
-
+    
 invalid:
-    # comando malformattato -> ignorato
+    # comando non riconosciuto, ritorna senza fare nulla
+    lw ra, 0(sp)        # recupero il return address
+    addi sp, sp, 4      # pulisco lo stack
     ret
 
 ret_to_main:
     lw ra, 0(sp)        # recupero il return address
     addi sp, sp, 4      # pulisco lo stack
-    ret
+    ret    
 
 #######################################################
 # Stub delle procedure vere
@@ -190,113 +218,198 @@ ret_to_main:
 #ADD
 
 handle_add:
-    
-    #debugg add
-    
     addi sp, sp, -8
-    sw ra, 4(sp)
-    sw a1, 8(sp)
+    sw a1, 0(sp)        # salva il carattere da inserire
+    sw ra, 4(sp)        # salva il return address
 
     jal find_free_space
-    beq a0, zero, add_end  # Nessun spazio disponibile
+    beq a1, zero, add_end  # Nessun spazio disponibile
 
-    lw a1, 4(sp)           # Recupera il carattere
+    mv a2, a1           # a2 = indirizzo nuovo nodo
+    lw a1, 0(sp)        # riprendo il carattere da inserire
+    addi sp, sp, 4      # pulisco parte della stack (lasciamo ra ancora lì)
 
-    # Salva carattere all'indirizzo libero
-    sb a1, 0(a0)
+    sb a1, 0(a2)        # salva carattere nel nodo
+    sw zero, 1(a2)      # imposta il campo next a 0 (null)
 
-    # Salva null next
-    addi t1, a0, 1
-    sw zero, 0(t1)
+    la t0, head
+    lw t1, 0(t0)        # carica head
+    beq t1, zero, add_first  # se head è 0, è il primo nodo
 
-    # Carica head
-    la t2, head
-    lw t3, 0(t2)
-    beq t3, zero, add_first
+    # altrimenti cerca l'ultimo nodo
+    mv t3, t1           # t3 = nodo corrente
 
-    # Cerca ultimo nodo
-    mv t4, t3         # t4 = current
-    
 find_last:
-    addi t5, t4, 1
-    lw t6, 0(t5)
-    beq t6, zero, link_new
-    mv t4, t6
+    addi t4, t3, 1      # t4 = campo next del nodo corrente
+    lw t5, 0(t4)        # t5 = indirizzo del prossimo nodo
+    beq t5, zero, link_new
+    mv t3, t5           # t3 = nodo successivo
     j find_last
 
 link_new:
-    addi t5, t4, 1
-    sw a0, 0(t5)
+    addi t4, t3, 1      # t4 = campo next dell'ultimo nodo
+    sw a2, 0(t4)        # collega ultimo nodo al nuovo nodo
     j update_counter
 
 add_first:
-    sw a0, 0(t2)
+    sw a2, 0(t0)        # head = nuovo nodo
 
 update_counter:
-    la t3, counter
-    lw t4, 0(t3)
-    addi t4, t4, 1
-    sw t4, 0(t3)
+    la t0, counter
+    lw t1, 0(t0)
+    addi t1, t1, 1
+    sw t1, 0(t0)
 
 add_end:
-    lw ra, 0(sp)
-    addi sp, sp, 8
-    ret
+    # stampa messaggio
+    li a0, 10
+    li a7, 11
+    ecall
 
+    la a0, add_msg
+    li a7, 4
+    ecall
+
+    li a0, 32           # spazio
+    li a7, 11
+    ecall
+
+    mv a0, a1           # carattere aggiunto
+    li a7, 11
+    ecall
+
+    li a0, 10           # newline
+    li a7, 11
+    ecall
+
+    lw ra, 0(sp)
+    addi sp, sp, 4
+    ret
 
 
 #DEL
 
 
-handle_del:
-    # azione debug per del
-    li a7, 4
-    la a0, del
-    ecall
+handle_del:  
+    # a1 -> carattere da cercare
+    # t2 -> indirizzo nodo corrente
+    # t3 -> indirizzo nodo precedente (se serve)
+
+    la t0, head  
+    lw t2, 0(t0)      # t2 = head (primo nodo)
+    li t3, 0          # t3 = nodo precedente, inizialmente nullo
+
+dell_loop: 
+    beq t2, zero, end_dell   # lista vuota o fine lista
+
+    lb t4, 0(t2)             # carico il carattere nel nodo corrente
+    beq t4, a1, dell_node    # trovato nodo da eliminare?
+
+    mv t3, t2                # t3 = nodo precedente
+    addi t1, t2, 1           # t1 = indirizzo campo next
+    lw t2, 0(t1)             # t2 = prossimo nodo
+    j dell_loop
+
+dell_node:
+    # se il nodo da eliminare è il primo (t2 == head)
+    la t5, head
+    lw t6, 0(t5)
+    bne t6, t2, not_first_node
+
+    # è il primo nodo: aggiorna head al prossimo nodo
+    # appunto se è 0 elimino la head praticamente
+    addi t1, t2, 1       # t1 = campo next
+    lw t4, 0(t1)         # t4 = prossimo nodo
+    sw t4, 0(t5)         # head = prossimo nodo
+    j cleanup_node
+
+not_first_node:
+    # nodo non in testa: collega il nodo precedente (t3) al successivo
+    addi t1, t2, 1       # t1 = campo next del nodo corrente
+    lw t4, 0(t1)         # t4 = prossimo nodo
+    sw t4, 1(t3)         # aggiorna next del precedente
+
+cleanup_node:
+    # azzera i 5 byte del nodo eliminato
+    li t0, 0
+    sb t0, 0(t2)
+    sb t0, 1(t2)
+    sb t0, 2(t2)
+    sb t0, 3(t2)
+    sb t0, 4(t2)
+
+    # decrementa counter
+    la t5, counter
+    lw t6, 0(t5)
+    addi t6, t6, -1
+    sw t6, 0(t5)
+
+    # stampa messaggio di conferma
+    li a0, 10        # newline
     li a7, 11
-    li a0, 40
     ecall
-    mv a0, a1
+
+    li a7, 4
+    la a0, dell_msg
     ecall
-    li a0, 41
+
+    li a0, 32        # spazio
+    li a7, 11
+    ecall
+
+    mv a0, a1        # stampa il carattere rimosso
+    li a7, 11
+    ecall
+
+    li a0, 10
+    li a7, 11
     ecall
     
-    # actual implementazione di DEL
-    
+    mv t2, t4        # t4 conteneva il nodo successivo prima del cleanup
+    j dell_loop
+
+end_dell:
     ret
 
 
 
-#print
+#PRINT
 
 handle_print:
-    # stampa debug iniziale
+    
+    # msg per print 
+    la a0, print_msg
     li a7, 4
-    la a0, print
-    ecall 
-
-    # inizializzazione
-    la t3, head  
-    lw t3, 0(t3)      # carica indirizzo head
-
-print_loop: 
-    beq t3, zero, end_print   # se la lista ï¿½ vuota, esci
-
-    # stampa carattere
-    lb a0, 0(t3)       # carica carattere
+    ecall
+    
+    # newline dopo il msg
+    li a0, 10
     li a7, 11
     ecall
+    
+    
+    # inizializzazione
+    la t0, head  
+    lw t2, 0(t0)      # carica indirizzo head
 
-    # stampa spazio dopo ogni carattere (opzionale)
-    addi t4, t3, 1     # indirizzo del puntatore al prossimo nodo
-    lw t4, 0(t4)       # t4 = prossimo nodo
-    beq t4, zero, end_print
+print_loop: 
+    beq t2, zero, end_print   # se la lista è vuota, esci
+
+    # stampa carattere
+    li a7, 11
+    lb a0, 0(t2)       # carica carattere da t2 come inidirizzo all'elemento della lista
+    ecall
+
+    # vado avanti nella lista
+    mv t1, t2
+    addi t1, t1, 1     # indirizzo del puntatore al prossimo nodo
+    lw t2, 0(t1)       # t2 = indirizzo al prossimo nodo
+    beq t2, zero, end_print
 
     li a0, 32          # spazio ' '
     li a7, 11
     ecall
-
-    mv t3, t4          # passa al prossimo nodo
+     
     j print_loop
 
 end_print:
@@ -307,6 +420,46 @@ end_print:
     ret
 
 
+
+    
+#REV
+
+handle_rev:
+    
+    la t0, head
+    lw t1, 0(t0)         # t1 = current = head
+    li t2, 0             # prev = NULL (zero)
+
+rev_loop:
+    beq t1, zero, rev_done   # se current è null, fine
+
+    addi t3, t1, 1       # t3 = indirizzo campo next del nodo corrente
+    lw t4, 0(t3)         # t4 = next = nodo successivo
+
+    sw t2, 0(t3)         # current->next = prev
+
+    # scambio puntatori
+    mv t2, t1            # prev = current
+    mv t1, t4            # current = next
+
+    j rev_loop
+
+rev_done:
+    # aggiorna la head al nuovo primo nodo (che è prev)
+    la t0, head
+    sw t2, 0(t0)
+
+    # stampa messaggio di conferma
+    la a0, rev_msg
+    li a7,4
+    ecall
+
+    li a0, 10
+    li a7, 11
+    ecall
+
+    ret
+
 #######################################################
 # Stub di procedure utili
 #######################################################
@@ -314,10 +467,10 @@ end_print:
 # find_free_space
 # Cerca un blocco libero da 5 byte (tutti zero) nella RAM
 # a partire SEMPRE da 0x100, per una lunghezza fissa (es. 100 byte)
-# OUT: a0 = indirizzo del primo blocco libero, 0 se non trovato
+# OUT: a1 = indirizzo del primo blocco libero, 0 se non trovato
 
 find_free_space:
-    li t0, 0x100          # indirizzo base fisso
+    li t0, 0x00000f54     # indirizzo base fisso
     li t4, 100            # dimensione fissa in byte
     li t1, 0              # offset
 
@@ -337,7 +490,7 @@ loop_search:
     lb t3, 4(t2)
     bne t3, zero, next
 
-    add a0, t0, t1        #restituisco l'indirizzo in a0
+    add a1, t0, t1        #restituisco l'indirizzo in a0
     ret
 
 next:
@@ -345,5 +498,5 @@ next:
     j loop_search
 
 not_found:
-    li a0, 0              # nessun blocco libero trovato
+    li a1, 0              # nessun blocco libero trovato
     ret
