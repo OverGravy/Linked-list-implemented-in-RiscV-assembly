@@ -44,3 +44,10 @@ listInput: .asciiz "ADD(a)~ADD(B)~PRINT~SORT~DEL(a)~REV~PRINT"
 ## Actual implemented feature
 
 - `COMMAND INPUT` works parsing the string and understang if the command is properly formatted
+- `ADD` works, adds a new element on the list
+- `DEL` works, removes all the occurrences of an element mantaining the integrity of the list
+- `PRINT` work, it print all the list element
+
+## Need to be implemented
+
+ `SORT`, i need to implement sort function that respect the ordering rules described above
