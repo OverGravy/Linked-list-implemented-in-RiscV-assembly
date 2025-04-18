@@ -13,7 +13,6 @@ The program supports the following operations:
 - `PRINT` – Print the entire list in order (recursively).
 - `SORT` – Sort the list based on ASCII values, with a custom category-based precedence.
 - `REV` – Reverse the list order (using the stack).
-- `SDX` / `SSX` – Right/Left rotate the list (circular shift).
 
 Each list node contains:
 - 1 byte: ASCII character (`DATA`)
