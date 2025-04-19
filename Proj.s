@@ -1,5 +1,5 @@
 .data
-    listInput: .string "ADD(b)~ADD(a)~PRINT~REV~PRINT~"
+    listInput: .string "ADD(aaa)~A DD(a)~ADD(b)~ADD(a)~ADD(2)~ADD(E)~ADD(r)~ADD(4)~ADD(,)~ADD(w)~PRINT~SORT~PRINT~"
     commandBuffer: .word 0, 0, 0, 0, 0, 0, 0, 0   # 8 parole = 32 byte     
     
     counter: .word 0 # counter degli elementi nella lista
@@ -18,6 +18,7 @@
     dell_msg:  .string "element deleted succesfully"
     rev_msg:   .string "list reverted succesfully"
     sort_msg:  .string "list sorted succesfully"
+    invd_msg:  .string "invalid command"
 
 
 
@@ -29,6 +30,7 @@
 # s1 -> indirizzo buffer comandi  
 # a1 -> il ritorno di tutte le funzioni 
 
+#########################################################
 
 .text
 
@@ -181,8 +183,17 @@ check_PRINT:
     j ret_to_main
 
 check_SORT:
-    # placeholder
- 
+    lb t1, 1(t0)
+    li t2, 79               # 'O'
+    bne t2, t1, invalid
+    lb t1, 2(t0)
+    li t2, 82               # 'R'
+    bne t1, t2, invalid
+    lb t1, 3(t0)
+    li t2, 84               # 'T'
+    bne t1, t2, invalid
+  
+    jal handle_sort
     #ritorno al main
     j ret_to_main
 
@@ -202,6 +213,14 @@ check_REV:
     
 invalid:
     # comando non riconosciuto, ritorna senza fare nulla
+    li a7, 4
+    la a0, invd_msg
+    ecall
+    
+    li a0, 10           # newline
+    li a7, 11
+    ecall
+    
     lw ra, 0(sp)        # recupero il return address
     addi sp, sp, 4      # pulisco lo stack
     ret
@@ -460,6 +479,35 @@ rev_done:
 
     ret
 
+
+#SORT
+
+handle_sort:
+    addi sp, sp, -4
+    sw ra, 0(sp)
+    
+    la t0, head
+    lw a0, 0(t0)         # a0 = head
+    beq a0, zero, sort_done   # se lista vuota, esci
+    jal bubble_sort       # a0 = bubble_sort(head)
+    sw a0, 0(t0)         # aggiorna head con nuova lista ordinata
+
+    # messaggio di conferma
+    la a0, sort_msg
+    li a7, 4
+    ecall
+
+    li a0, 10
+    li a7, 11
+    ecall
+sort_done:
+    lw ra, 0(sp)
+    addi sp, sp, 4
+    ret
+
+
+
+
 #######################################################
 # Stub di procedure utili
 #######################################################
@@ -499,4 +547,50 @@ next:
 
 not_found:
     li a1, 0              # nessun blocco libero trovato
+    ret
+    
+    
+# bubble_sort
+# a0 = head della lista
+# ritorna: a0 = head della lista ordinata
+
+bubble_sort:
+    addi sp, sp, -16
+    sw ra, 0(sp)
+    sw a0, 4(sp)     # salva head originale
+    li t6, 0         # flag "scambio avvenuto" (0 = false)
+
+    mv t0, a0        # t0 = nodo corrente
+
+bubble_pass:
+    lw t1, 1(t0)     # t1 = prossimo nodo
+    beq t1, zero, pass_end  # se fine lista, esci
+
+    lb t2, 0(t0)     # carattere corrente
+    lb t3, 0(t1)     # carattere successivo
+
+    bge t2, t3, do_swap
+    j next_pair
+
+do_swap:
+    sb t3, 0(t0)     # scambia i caratteri
+    sb t2, 0(t1)
+    li t6, 1         # segna che c'è stato uno swap
+
+next_pair:
+    mv t0, t1
+    j bubble_pass
+
+pass_end:
+    li t0, 0
+    beq t6, t0, sort_return   # se nessuno swap, fine
+
+    # chiama ricorsivamente bubble_sort
+    lw a0, 4(sp)     # ricarica head
+    jal bubble_sort
+
+sort_return:
+    lw ra, 0(sp)
+    lw a0, 4(sp)     # ritorna head
+    addi sp, sp, 16
     ret
