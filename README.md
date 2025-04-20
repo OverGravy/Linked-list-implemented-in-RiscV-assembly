@@ -50,4 +50,8 @@ listInput: .asciiz "ADD(a)~ADD(B)~PRINT~SORT~DEL(a)~REV~PRINT"
 
 # Things that need to be fix
 
-- Whitout a single tilde at the end of the command string the parsing loop therminate without execute the last command
+- Whitout a single tilde at the end of the command string the parsing loop therminate without execute the last command.
+
+- After sorting something weird happen and some character changes randomly.
+
+- After Reverse command the program loops in the parse_loop section. It seems like theres a connection with the sort proedure lol. 

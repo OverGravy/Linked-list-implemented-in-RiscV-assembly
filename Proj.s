@@ -1,6 +1,6 @@
 .data
-    #listInput: .string "ADD(aaa)~A DD(a)~ADD(b)~ADD(a)~ADD(2)~ADD(E)~ADD(r)~ADD(4)~ADD(,)~ADD(w)~PRINT~SORT~PRINT~"
-    listInput: .string "ADD(1) ~ ADD(a) ~ ADD(a) ~ ADD(B) ~ ADD(;) ~ ADD(9) ~SORT~PRINT~DEL(b) ~DEL(B)~PRI~REV~PRINT~"
+    #listInput: .string "ADD(;)~ADD(aaa)~A DD(a)~ADD(b)~ADD(a)~ADD(2)~ADD(E)~ADD(r)~ADD(4)~ADD(,)~ADD(w)~PRINT~SORT~PRINT~"
+    listInput: .string "ADD(1) ~ ADD(a) ~ ADD(a) ~ ADD(B) ~ ADD(;) ~ ADD(9) ~SORT~PRINT~DEL(b) ~DEL(B)~PRI~PRINT~"
     commandBuffer: .word 0, 0, 0, 0, 0, 0, 0, 0   # 8 parole = 32 byte     
     
     counter: .word 0 # counter degli elementi nella lista
@@ -20,6 +20,7 @@
     rev_msg:   .string "list reverted succesfully"
     sort_msg:  .string "list sorted succesfully"
     invd_msg:  .string "invalid command"
+    loop_msg:  .string "loop detected"
 
 
 
@@ -52,15 +53,17 @@ parse_loop:
     j parse_loop   
 
 handle_tilde:
-    li t1, 0
-    sb t1, 0(s1)         # null-terminate comando
-    la a0, commandBuffer # preparazione parametri per il passaggio alla procedura
-    
+    li   t1, 0
+    sb   t1, 0(s1)         # null-terminate comando
+    la   a0, commandBuffer # parametro per parse_command
+
     addi sp, sp, -4
-    sw ra, 0(sp)
-    
-    jal parse_command    # validazione comando
-    j reset_buffer
+    sw   ra, 0(sp)         # salva return address
+    jal  parse_command
+    lw   ra, 0(sp)         # ripristina return address
+    addi sp, sp, 4         # ripulisci lo stack
+
+    j    reset_buffer
 
 wait_tilde:
     lbu t0, 0(s0)
@@ -554,44 +557,106 @@ not_found:
 # bubble_sort
 # a0 = head della lista
 # ritorna: a0 = head della lista ordinata
-
+# categorie: extra(0) < number(1) < lowercase(2) < uppercase(3)
 bubble_sort:
     addi sp, sp, -16
     sw ra, 0(sp)
-    sw a0, 4(sp)     # salva head originale
-    li t6, 0         # flag "scambio avvenuto" (0 = false)
-
-    mv t0, a0        # t0 = nodo corrente
+    sw a0, 4(sp)
+    li t6, 0            # flag di scambio = false
+    mv t0, a0           # t0 = puntatore al nodo corrente
 
 bubble_pass:
-    lw t1, 1(t0)     # t1 = prossimo nodo
-    beq t1, zero, pass_end  # se fine lista, esci
+    lw t1, 1(t0)        # t1 = puntatore al prossimo nodo
+    beq t1, zero, pass_end
+    lb t2, 0(t0)        # char1 = carattere attuale
+    lb t3, 0(t1)        # char2 = carattere nel prossimo nodo
 
-    lb t2, 0(t0)     # carattere corrente
-    lb t3, 0(t1)     # carattere successivo
+    # classifico char1 -> t4 usando s0
+    li t4, 0            # default extra
+    li s2, 48
+    blt t2, s2, _t2_done  # sotto '0' => va negli extra
+    li s2, 57
+    ble t2, s2, set_t2_num # '0'-'9'
+    li s2, 97
+    blt t2, s2, t2_check_upper # tra ':' and '`'
+    li s2, 122
+    ble t2, s2, set_t2_lower # 'a'-'z' in questo intervallo
+    j _t2_done
+    
+t2_check_upper:
+    li s2, 65
+    blt t2, s2, _t2_done
+    li s2, 90
+    ble t2, s2, set_t2_upper
+    j _t2_done
+    
+set_t2_num:
+    li t4, 1
+    j _t2_done
+    
+set_t2_lower:
+    li t4, 2
+    j _t2_done
+    
+set_t2_upper:
+    li t4, 3
 
-    bge t2, t3, do_swap
-    j next_pair
+_t2_done:
+    # classifica char2 -> t5
+    li t5, 0
+    li s2, 48
+    blt t3, s2, _t3_done
+    li s2, 57
+    ble t3, s2, set_t3_num
+    li s2, 97
+    blt t3, s2, _t3_check_upper
+    li s2, 122
+    ble t3, s2, set_t3_lower
+    j _t3_done
+    
+_t3_check_upper:
+    li s2, 65
+    blt t3, s2, _t3_done
+    li s2, 90
+    ble t3, s2, set_t3_upper
+    j _t3_done
+    
+set_t3_num:
+    li t5, 1
+    j _t3_done
+    
+set_t3_lower:
+    li t5, 2
+    j _t3_done
+    
+set_t3_upper:
+    li t5, 3
+    
+_t3_done:
+    # decido lo swap
+    bgt t4, t5, do_swap
+    beq t4, t5, no_swap
+    blt t4, t5, no_swap
+    blt t2, t3, no_swap
 
 do_swap:
-    sb t3, 0(t0)     # scambia i caratteri
+    sb t3, 0(t0)
     sb t2, 0(t1)
-    li t6, 1         # segna che c'è stato uno swap
-
-next_pair:
-    mv t0, t1
+    li t6, 1           # mark del flag dello swap
+    
+no_swap:
+    mv t0, t1          # punto al prossimo nodo
     j bubble_pass
 
 pass_end:
-    li t0, 0
-    beq t6, t0, sort_return   # se nessuno swap, fine
+    lw a0, 4(sp)       # ricarico la testa head
+    beq t6, zero, end_sort
+    li t6, 0           # reset flag
+    jal bubble_sort     # chiamata ricorsiva
 
-    # chiama ricorsivamente bubble_sort
-    lw a0, 4(sp)     # ricarica head
-    jal bubble_sort
-
-sort_return:
+end_sort:
     lw ra, 0(sp)
-    lw a0, 4(sp)     # ritorna head
     addi sp, sp, 16
     ret
+
+
