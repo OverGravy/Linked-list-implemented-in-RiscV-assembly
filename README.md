@@ -62,7 +62,5 @@ The function for sorting the simple list by request must be implemented recursiv
 ---
 ## The program working 
 
-<video width="640" height="360" controls>
-  <source src="https://github.com/OverGravy/Linked-list-implemented-in-RiscV-assembly/raw/main/Doc/linkedList%20resized.mp4" type="video/mp4">
-  Il tuo browser non supporta il tag video.
-</video>
+https://github.com/user-attachments/assets/2ab0597c-80e3-4185-b24c-4e4b43f48c89
+
