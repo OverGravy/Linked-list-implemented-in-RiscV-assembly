@@ -1,6 +1,7 @@
 .data
     #listInput: .string "ADD(;)~ADD(aaa)~A DD(a)~ADD(b)~ADD(a)~ADD(2)~ADD(E)~ADD(r)~ADD(4)~ADD(,)~ADD(w)~PRINT~SORT~PRINT~"
-    listInput: .string "ADD(1) ~ ADD(a) ~ ADD(a) ~ ADD(B) ~ ADD(;) ~ ADD(9) ~REV~PRINT~DEL(b) ~DEL(B)~PRI~PRINT~"
+    #listInput: .string "ADD(1) ~ ADD(a) ~ ADD(a) ~ ADD(B) ~ ADD(;) ~ ADD(9) ~SORT~PRINT~DEL(b) ~DEL(B)~PRI~REV~PRINT~"
+    listInput: .string "ADD(F) ~ ADD(;) ~ ADD(A) ~ ADD(D) ~ ADD(E) ~PRINT ~SORT~PRINT~DEL(b) ~DEL(B)~PRI~REV~PRINT~"
     commandBuffer: .word 0, 0, 0, 0, 0, 0, 0, 0   # 8 parole = 32 byte     
     
     counter: .word 0 # counter degli elementi nella lista
@@ -250,14 +251,14 @@ handle_add:
 
     mv a2, a1           # a2 = indirizzo nuovo nodo
     lw a1, 0(sp)        # riprendo il carattere da inserire
-    addi sp, sp, 4      # pulisco parte della stack (lasciamo ra ancora lì)
+    addi sp, sp, 4      # pulisco parte della stack (lasciamo ra ancora l?)
 
     sb a1, 0(a2)        # salva carattere nel nodo
     sw zero, 1(a2)      # imposta il campo next a 0 (null)
 
     la t0, head
     lw t1, 0(t0)        # carica head
-    beq t1, zero, add_first  # se head è 0, è il primo nodo
+    beq t1, zero, add_first  # se head ? 0, ? il primo nodo
 
     # altrimenti cerca l'ultimo nodo
     mv t3, t1           # t3 = nodo corrente
@@ -334,13 +335,13 @@ dell_loop:
     j dell_loop
 
 dell_node:
-    # se il nodo da eliminare è il primo (t2 == head)
+    # se il nodo da eliminare ? il primo (t2 == head)
     la t5, head
     lw t6, 0(t5)
     bne t6, t2, not_first_node
 
-    # è il primo nodo: aggiorna head al prossimo nodo
-    # appunto se è 0 elimino la head praticamente
+    # ? il primo nodo: aggiorna head al prossimo nodo
+    # appunto se ? 0 elimino la head praticamente
     addi t1, t2, 1       # t1 = campo next
     lw t4, 0(t1)         # t4 = prossimo nodo
     sw t4, 0(t5)         # head = prossimo nodo
@@ -416,7 +417,7 @@ handle_print:
     lw t2, 0(t0)      # carica indirizzo head
 
 print_loop: 
-    beq t2, zero, end_print   # se la lista è vuota, esci
+    beq t2, zero, end_print   # se la lista ? vuota, esci
 
     # stampa carattere
     li a7, 11
@@ -454,7 +455,7 @@ handle_rev:
     li t2, 0             # prev = NULL (zero)
 
 rev_loop:
-    beq t1, zero, rev_done   # se current è null, fine
+    beq t1, zero, rev_done   # se current ? null, fine
 
     addi t3, t1, 1       # t3 = indirizzo campo next del nodo corrente
     lw t4, 0(t3)         # t4 = next = nodo successivo
@@ -468,7 +469,7 @@ rev_loop:
     j rev_loop
 
 rev_done:
-    # aggiorna la head al nuovo primo nodo (che è prev)
+    # aggiorna la head al nuovo primo nodo (che ? prev)
     la t0, head
     sw t2, 0(t0)
 
@@ -494,6 +495,7 @@ handle_sort:
     lw a0, 0(t0)         # a0 = head
     beq a0, zero, sort_done   # se lista vuota, esci
     jal bubble_sort       # a0 = bubble_sort(head)
+    la t0, head
     sw a0, 0(t0)         # aggiorna head con nuova lista ordinata
 
     # messaggio di conferma
@@ -658,5 +660,3 @@ end_sort:
     lw ra, 0(sp)
     addi sp, sp, 16
     ret
-
-
