@@ -2,6 +2,8 @@
     #listInput: .string "ADD(;)~ADD(aaa)~A DD(a)~ADD(b)~ADD(a)~ADD(2)~ADD(E)~ADD(r)~ADD(4)~ADD(,)~ADD(w)~PRINT~SORT~PRINT~"
     #listInput: .string "ADD(1) ~ ADD(a) ~ ADD(a) ~ ADD(B) ~ ADD(;) ~ ADD(9) ~SORT~PRINT~DEL(b) ~DEL(B)~PRI~REV~PRINT~"
     listInput: .string "ADD(F) ~ ADD(;) ~ ADD(A) ~ ADD(D) ~ ADD(E) ~PRINT ~SORT~PRINT~DEL(b) ~DEL(B)~PRI~REV~PRINT~"
+ 
+
     commandBuffer: .word 0, 0, 0, 0, 0, 0, 0, 0   # 8 parole = 32 byte     
     
     counter: .word 0 # counter degli elementi nella lista
@@ -22,7 +24,6 @@
     sort_msg:  .string "list sorted succesfully"
     invd_msg:  .string "invalid command"
     loop_msg:  .string "loop detected"
-
 
 
 
@@ -448,43 +449,48 @@ end_print:
 
     
 #REV
-
 handle_rev:
-    
+    # Salva sulla stack tutti i caratteri della lista poi li estrae in ordine contrario 
     la t0, head
-    lw t1, 0(t0)         # t1 = current = head
-    li t2, 0             # prev = NULL (zero)
+    lw t1, 0(t0)         # t1 = current node (inizio lista)
 
-rev_loop:
-    beq t1, zero, rev_done   # se current ? null, fine
+save_loop:
+    beq t1, zero, reload_loop   # fine lista, passa alla fase di reinserimento
 
-    addi t3, t1, 1       # t3 = indirizzo campo next del nodo corrente
-    lw t4, 0(t3)         # t4 = next = nodo successivo
+    lb t2, 0(t1)          # t2 = carattere del nodo
+    addi sp, sp, -4       # spazio sulla stack
+    sw t2, 0(sp)          # salva carattere nella stack
 
-    sw t2, 0(t3)         # current->next = prev
+    addi t3, t1, 1        # t3 = indirizzo campo next del nodo corrente
+    lw t1, 0(t3)          # t1 = prossimo nodo
+    j save_loop
 
-    # scambio puntatori
-    mv t2, t1            # prev = current
-    mv t1, t4            # current = next
-
-    j rev_loop
-
-rev_done:
-    # aggiorna la head al nuovo primo nodo (che ? prev)
+# Riprende dalla stack e riscrive i caratteri nella lista
+reload_loop:
     la t0, head
-    sw t2, 0(t0)
+    lw t1, 0(t0)         # t1 = current node (inizio lista)
 
+restore_loop:
+    beq t1, zero, rev_finish   # fine lista
+
+    lw t2, 0(sp)         # riprende il carattere
+    addi sp, sp, 4       # pulisce lo spazio usato
+    sb t2, 0(t1)         # scrive il carattere nel nodo
+
+    addi t3, t1, 1        # t3 = indirizzo campo next del nodo corrente
+    lw t1, 0(t3)          # t1 = prossimo nodo
+    j restore_loop
+
+rev_finish:
     # stampa messaggio di conferma
     la a0, rev_msg
-    li a7,4
+    li a7, 4
     ecall
 
     li a0, 10
     li a7, 11
     ecall
-
     ret
-
 
 #SORT
 
