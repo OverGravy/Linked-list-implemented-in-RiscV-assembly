@@ -1,7 +1,7 @@
 .data
     #listInput: .string "ADD(;)~ADD(aaa)~A DD(a)~ADD(b)~ADD(a)~ADD(2)~ADD(E)~ADD(r)~ADD(4)~ADD(,)~ADD(w)~PRINT~SORT~PRINT~"
     #listInput: .string "ADD(1) ~ ADD(a) ~ ADD(a) ~ ADD(B) ~ ADD(;) ~ ADD(9) ~SORT~PRINT~DEL(b) ~DEL(B)~PRI~REV~PRINT~"
-    listInput: .string "ADD(F) ~ ADD(;) ~ ADD(A) ~ ADD(D) ~ ADD(E) ~PRINT ~SORT~PRINT~DEL(b) ~DEL(B)~PRI~REV~PRINT~"
+    listInput: .string "ADD(F) ~ ADD(;)  ~ ADD(:) ~ ADD(A) ~ ADD(D) ~ ADD(E) ~PRINT ~SORT~PRINT~DEL(b) ~DEL(B)~PRI~REV~PRINT~"
  
 
     commandBuffer: .word 0, 0, 0, 0, 0, 0, 0, 0   # 8 parole = 32 byte     
@@ -9,12 +9,6 @@
     counter: .word 0 # counter degli elementi nella lista
     head: .word 0    # pointer alla testa della lista ovviamente nullo
     
-    # DEBUG STRING
-    add:   .string "ADD"
-    del:   .string "DEL"
-    sort:  .string "SORT"
-    print: .string "PRINT"
-    rev:   .string "REV"
     
     # Command messages
     add_msg:   .string "element added:"
@@ -44,10 +38,10 @@
 
 parse_loop:
     lbu t0, 0(s0)
-    beq t0, zero, parse_end   # raggiungo il fine stringa
+    beq t0, zero, parse_end   # controllo fine stringa
     
     li t1, 126                # valore della tilde
-    beq t0, t1, handle_tilde
+    beq t0, t1, handle_tilde  # controllo tilde
 
     # caricamento nel buffer del carattere letto
     sb t0, 0(s1)           # carcica il valore nel buffer 
@@ -57,8 +51,7 @@ parse_loop:
 
 handle_tilde:
     li   t1, 0
-    sb   t1, 0(s1)         # null-terminate comando
-    la   a0, commandBuffer # parametro per parse_command
+    sb   t1, 0(s1)         # terminatore del buffer
 
     addi sp, sp, -4
     sw   ra, 0(sp)         # salva return address
@@ -91,8 +84,8 @@ parse_end: # fine del programma
 parse_command:
     la t0, commandBuffer
     
-    addi sp, sp, -4     # spazio sullo stack
-    sw ra, 0(sp)        # salvo il return address
+    addi sp, sp, -4      
+    sw ra, 0(sp)        # salvo il return address dovendo dopo i check chiamare le handle dei vari comandi 
 
 parsing:
     lb t1, 0(t0)           # carico il primo carattere
@@ -238,7 +231,7 @@ ret_to_main:
     ret    
 
 #######################################################
-# Stub delle procedure vere
+# Stub delle procedure di gestione dei comandi 
 #######################################################
 
 #ADD
@@ -253,7 +246,7 @@ handle_add:
 
     mv a2, a1           # a2 = indirizzo nuovo nodo
     lw a1, 0(sp)        # riprendo il carattere da inserire
-    addi sp, sp, 4      # pulisco parte della stack (lasciamo ra ancora l?)
+    addi sp, sp, 4      # pulisco parte della stack (lasciamo ra ancora li)
 
     sb a1, 0(a2)        # salva carattere nel nodo
     sw zero, 1(a2)      # imposta il campo next a 0 (null)
@@ -527,12 +520,12 @@ sort_done:
 
 # find_free_space
 # Cerca un blocco libero da 5 byte (tutti zero) nella RAM
-# a partire SEMPRE da 0x100, per una lunghezza fissa (es. 100 byte)
+# a partire SEMPRE da 0x00000f54, per una lunghezza fissa di 500 byte
 # OUT: a1 = indirizzo del primo blocco libero, 0 se non trovato
 
 find_free_space:
     li t0, 0x00000f54     # indirizzo base fisso
-    li t4, 100            # dimensione fissa in byte
+    li t4, 500            # dimensione fissa in byte
     li t1, 0              # offset
 
 loop_search:
@@ -583,65 +576,65 @@ bubble_pass:
     # classifico char1 -> t4 usando s0
     li t4, 0            # default extra
     li s2, 48
-    blt t2, s2, _t2_done  # sotto '0' => va negli extra
+    blt t2, s2, ch1_done  # sotto '0' => va negli extra
     li s2, 57
-    ble t2, s2, set_t2_num # '0'-'9'
+    ble t2, s2, set_ch1_num # '0'-'9'
     li s2, 97
-    blt t2, s2, t2_check_upper # tra ':' and '`'
+    blt t2, s2, ch1_check_upper # tra ':' and '`'
     li s2, 122
-    ble t2, s2, set_t2_lower # 'a'-'z' in questo intervallo
-    j _t2_done
+    ble t2, s2, set_ch1_lower # 'a'-'z' in questo intervallo
+    j ch1_done
     
-t2_check_upper:
+ch1_check_upper:
     li s2, 65
-    blt t2, s2, _t2_done
+    blt t2, s2, ch1_done
     li s2, 90
     ble t2, s2, set_t2_upper
-    j _t2_done
+    j ch1_done
     
-set_t2_num:
+set_ch1_num:
     li t4, 1
-    j _t2_done
+    j ch1_done
     
-set_t2_lower:
+set_ch1_lower:
     li t4, 2
-    j _t2_done
+    j ch1_done
     
 set_t2_upper:
     li t4, 3
 
-_t2_done:
+ch1_done:
     # classifica char2 -> t5
     li t5, 0
     li s2, 48
-    blt t3, s2, _t3_done
+    blt t3, s2, ch2_done
     li s2, 57
-    ble t3, s2, set_t3_num
+    ble t3, s2, set_ch2_num
     li s2, 97
-    blt t3, s2, _t3_check_upper
+    blt t3, s2, ch2_check_upper
     li s2, 122
-    ble t3, s2, set_t3_lower
-    j _t3_done
+    ble t3, s2, set_ch2_lower
+    j ch2_done
     
-_t3_check_upper:
+ch2_check_upper:
     li s2, 65
-    blt t3, s2, _t3_done
+    blt t3, s2, ch2_done
     li s2, 90
-    ble t3, s2, set_t3_upper
-    j _t3_done
+    ble t3, s2, set_ch2_upper
+    j ch2_done
     
-set_t3_num:
+set_ch2_num:
     li t5, 1
-    j _t3_done
+    j ch2_done
     
-set_t3_lower:
+set_ch2_lower:
     li t5, 2
-    j _t3_done
+    j ch2_done
     
-set_t3_upper:
+set_ch2_upper:
     li t5, 3
     
-_t3_done:
+ch2_done:
     # decido lo swap
     bgt t4, t5, do_swap
     beq t4, t5, no_swap
@@ -658,10 +651,10 @@ no_swap:
     j bubble_pass
 
 pass_end:
-    lw a0, 4(sp)       # ricarico la testa head
-    beq t6, zero, end_sort
-    li t6, 0           # reset flag
-    jal bubble_sort     # chiamata ricorsiva
+    lw a0, 4(sp)                # ricarico la testa head
+    beq t6, zero, end_sort      # controllo fine sort
+    li t6, 0                    # reset flag
+    jal bubble_sort             # chiamata ricorsiva
 
 end_sort:
     lw ra, 0(sp)
