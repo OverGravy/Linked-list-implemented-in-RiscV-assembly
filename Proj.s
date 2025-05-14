@@ -1,8 +1,8 @@
 .data
-    #listInput: .string "ADD(;)~ADD(aaa)~A DD(a)~ADD(b)~ADD(a)~ADD(2)~ADD(E)~ADD(r)~ADD(4)~ADD(,)~ADD(w)~PRINT~SORT~PRINT~"
-    #listInput: .string "ADD(1) ~ ADD(a) ~ ADD(a) ~ ADD(B) ~ ADD(;) ~ ADD(9) ~SORT~PRINT~DEL(b) ~DEL(B)~PRI~REV~PRINT~"
-    listInput: .string "ADD(F) ~ ADD(;)  ~ ADD(:) ~ ADD(A) ~ ADD(D) ~ ADD(E) ~PRINT ~SORT~PRINT~DEL(b) ~DEL(B)~PRI~REV~PRINT~"
- 
+    #listInput: .string "ADD(;)~ADD(aaa)~A DD(a)~ADD(b)~ADD(a)~ADD(2)~ADD(E)~ADD(r)~ADD(4)~ADD(,)~ADD(w)~PRINT~SORT~PRINT"
+    #listInput: .string "ADD(1) ~ ADD(a) ~ ADD(a) ~ ADD(B) ~ ADD(;) ~ ADD(9) ~SORT~PRINT~DEL(b) ~DEL(B)~PRI~REV~PRINT"
+    #listInput: .string "ADD(F) ~ ADD(;)  ~ ADD(:) ~ ADD(A) ~ ADD(D) ~ ADD(E) ~PRINT ~SORT~PRINT~DEL(b) ~DEL(B)~PRI~REV~PRINT"
+    listInput: .string "ADD(1) ~ ADD(a) ~ add(B) ~ ADD(B) ~ ADD ~ ADD(9) ~PRINT~SORT(a)~PRINT~DEL(bb) ~DEL(B)~PRINT~REV~PRINT"
 
     commandBuffer: .word 0, 0, 0, 0, 0, 0, 0, 0   # 8 parole = 32 byte     
     
@@ -26,7 +26,8 @@
 #                REGISTRI IMPORTANTI                  #
 
 # s0 -> indirizzo stringa comandi
-# s1 -> indirizzo buffer comandi  
+# s1 -> indirizzo buffer comandi 
+# s4 -> flag fine stringa listInput 
 # a1 -> il ritorno di tutte le funzioni 
 
 #########################################################
@@ -36,9 +37,10 @@
     la s0, listInput        # s0 -> stringa
     la s1, commandBuffer    # s1 -> buffer
 
+    li s4, 0                # s4 -> 0 la stringa non è finita
 parse_loop:
     lbu t0, 0(s0)
-    beq t0, zero, parse_end   # controllo fine stringa
+    beq t0, zero, list_end   # controllo fine stringa
     
     li t1, 126                # valore della tilde
     beq t0, t1, handle_tilde  # controllo tilde
@@ -58,6 +60,8 @@ handle_tilde:
     jal  parse_command
     lw   ra, 0(sp)         # ripristina return address
     addi sp, sp, 4         # ripulisci lo stack
+    
+    bne s4, zero, parse_end  #esco in caso in cui il flag in s4 è diverso da 0 quindi ho raggiunto il terminatore 
 
     j    reset_buffer
 
@@ -73,6 +77,10 @@ reset_buffer:
     addi s0, s0, 1
     la s1, commandBuffer   # rimetto il puntatore all'inizio del buffer
     j parse_loop
+
+list_end:
+    li s4, 1
+    j handle_tilde
 
 parse_end: # fine del programma
     li a7, 10
@@ -177,6 +185,14 @@ check_PRINT:
     li t2, 84               # 'T'
     bne t1, t2, invalid
   
+    lb t1, 4(t0)
+    beq t1, zero, print_check_ok
+  
+    li t2, 32
+    lb t1, 4(t0)  
+    bne t2, t1, invalid
+
+print_check_ok: 
     jal handle_print
     
     #ritorno al main
@@ -192,6 +208,16 @@ check_SORT:
     lb t1, 3(t0)
     li t2, 84               # 'T'
     bne t1, t2, invalid
+  
+    lb t1, 4(t0)
+    beq t1, zero, sort_check_ok
+  
+    li t2, 32
+    lb t1, 4(t0)  
+    bne t2, t1, invalid
+ 
+
+sort_check_ok:
   
     jal handle_sort
     #ritorno al main
