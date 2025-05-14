@@ -7,7 +7,7 @@
     commandBuffer: .word 0, 0, 0, 0, 0, 0, 0, 0   # 8 parole = 32 byte     
     
     counter: .word 0 # counter degli elementi nella lista
-    head: .word 0    # pointer alla testa della lista ovviamente nullo
+    head: .word 0    # pointer alla testa della lista inizialmente nullo
     
     
     # Command messages
@@ -212,7 +212,7 @@ check_REV:
     j ret_to_main
     
 invalid:
-    # comando non riconosciuto, ritorna senza fare nulla
+    # comando non riconosciuto, ritorna al main senza fare nulla
     li a7, 4
     la a0, invd_msg
     ecall
@@ -253,7 +253,7 @@ handle_add:
 
     la t0, head
     lw t1, 0(t0)        # carica head
-    beq t1, zero, add_first  # se head ? 0, ? il primo nodo
+    beq t1, zero, add_first  # se head è 0, allora è il primo nodo
 
     # altrimenti cerca l'ultimo nodo
     mv t3, t1           # t3 = nodo corrente
@@ -412,7 +412,7 @@ handle_print:
     lw t2, 0(t0)      # carica indirizzo head
 
 print_loop: 
-    beq t2, zero, end_print   # se la lista ? vuota, esci
+    beq t2, zero, end_print   # se la lista è vuota, esci
 
     # stampa carattere
     li a7, 11
